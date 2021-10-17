@@ -198,6 +198,7 @@ class FadingText(object):
 # ==============================================================================
 # -- HelpText ------------------------------------------------------------------
 # ==============================================================================
+
 class HelpText(object):
     """ Helper class for text render"""
     def __init__(self, font, width, height):
@@ -245,4 +246,4 @@ class KeyboardControl(object):
     @staticmethod
     def _is_quit_shortcut(key):
         """Shortcut for quitting"""
-        return (key == K_ESCAPE) or (key == K_q and pygame.key.get_mods() & KMOD_CTRL)
+        return (key == pygame.K_ESCAPE) or (key == pygame.K_q and pygame.key.get_mods() & pygame.KMOD_CTRL)

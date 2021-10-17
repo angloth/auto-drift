@@ -5,6 +5,7 @@ import weakref
 import collections
 import numpy as np
 import pygame
+import math
 
 from carla import ColorConverter as cc
 
@@ -52,7 +53,7 @@ class World(object):
         self.camera_manager = None
         self._weather_presets = find_weather_presets()
         self._weather_index = 0
-        self._actor_filter = args.filter
+        self._actor_filter = args.vehicle
         self.restart(args)
         self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
@@ -91,10 +92,8 @@ class World(object):
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.modify_vehicle_physics(self.player)
 
-        if self._args.sync:
-            self.world.tick()
-        else:
-            self.world.wait_for_tick()
+        self.world.tick()
+        #self.world.wait_for_tick()
 
         # Set up the sensors.
         self.collision_sensor = CollisionSensor(self.player, self.hud)

@@ -61,11 +61,20 @@ try:
 except IndexError:
     pass
 
+class client_args():
+    def __init__(self):
+        self.host = "127.0.0.1"
+        self.port = 2000
+
+        self.width = 1280
+        self.height = 720
+
+        self.vehicle = "vehicle.tesla.model3"
+        self.loop = True
 
 # ==============================================================================
 # -- Game Loop ---------------------------------------------------------
 # ==============================================================================
-
 
 def game_loop(args):
     """
@@ -78,39 +87,34 @@ def game_loop(args):
     world = None
 
     try:
-        if args.seed:
-            random.seed(args.seed)
-
         client = carla.Client(args.host, args.port)
-        client.set_timeout(10.0)
 
-        client.load_world('Town03_opt')
-        client.set_timeout(4.0)
+        # load world 
+        client.load_world('Town01_opt')
+        client.set_timeout(6.0)
 
         traffic_manager = client.get_trafficmanager()
         sim_world = client.get_world()
 
-        if args.sync:
-            settings = sim_world.get_settings()
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 0.05
-            sim_world.apply_settings(settings)
+        # set synchronous mode 
+        settings = sim_world.get_settings()
+        settings.synchronous_mode = True
+        settings.fixed_delta_seconds = 0.05
+        sim_world.apply_settings(settings)
+        traffic_manager.set_synchronous_mode(True)
 
-            traffic_manager.set_synchronous_mode(True)
-
+        # open pygame window
         display = pygame.display.set_mode(
             (args.width, args.height),
             pygame.HWSURFACE | pygame.DOUBLEBUF)
 
+        # initialize HUD
         hud = HUD(args.width, args.height)
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world)
-        if args.agent == "Basic":
-            agent = BasicAgent(world.player)
-        else:
-            agent = BehaviorAgent(world.player, behavior=args.behavior)
 
-        # Set the agent destination
+        # create agent and set destination
+        agent = BehaviorAgent(world.player, behavior="aggressive")
         spawn_points = world.map.get_spawn_points()
         destination = random.choice(spawn_points).location
         agent.set_destination(destination)
@@ -119,10 +123,10 @@ def game_loop(args):
 
         while True:
             clock.tick()
-            if args.sync:
-                world.world.tick()
-            else:
-                world.world.wait_for_tick()
+
+            world.world.tick()
+            #world.world.wait_for_tick()
+            
             if controller.parse_events():
                 return
 
@@ -164,76 +168,13 @@ def game_loop(args):
 def main():
     """Main method"""
 
-    argparser = argparse.ArgumentParser(
-        description='CARLA Automatic Control Client')
-    argparser.add_argument(
-        '-v', '--verbose',
-        action='store_true',
-        dest='debug',
-        help='Print debug information')
-    argparser.add_argument(
-        '--host',
-        metavar='H',
-        default='127.0.0.1',
-        help='IP of the host server (default: 127.0.0.1)')
-    argparser.add_argument(
-        '-p', '--port',
-        metavar='P',
-        default=2000,
-        type=int,
-        help='TCP port to listen to (default: 2000)')
-    argparser.add_argument(
-        '--res',
-        metavar='WIDTHxHEIGHT',
-        default='1280x720',
-        help='Window resolution (default: 1280x720)')
-    argparser.add_argument(
-        '--sync',
-        action='store_true',
-        help='Synchronous mode execution')
-    argparser.add_argument(
-        '--filter',
-        metavar='PATTERN',
-        default='vehicle.*',
-        help='Actor filter (default: "vehicle.*")')
-    argparser.add_argument(
-        '-l', '--loop',
-        action='store_true',
-        dest='loop',
-        help='Sets a new random destination upon reaching the previous one (default: False)')
-    argparser.add_argument(
-        "-a", "--agent", type=str,
-        choices=["Behavior", "Basic"],
-        help="select which agent to run",
-        default="Behavior")
-    argparser.add_argument(
-        '-b', '--behavior', type=str,
-        choices=["cautious", "normal", "aggressive"],
-        help='Choose one of the possible agent behaviors (default: normal) ',
-        default='normal')
-    argparser.add_argument(
-        '-s', '--seed',
-        help='Set seed for repeating executions (default: None)',
-        default=None,
-        type=int)
-
-    args = argparser.parse_args()
-
-    args.width, args.height = [int(x) for x in args.res.split('x')]
-
-    log_level = logging.DEBUG if args.debug else logging.INFO
-    logging.basicConfig(format='%(levelname)s: %(message)s', level=log_level)
-
-    logging.info('listening to server %s:%s', args.host, args.port)
-
-    #print(__doc__)
+    args = client_args()
 
     try:
         game_loop(args)
 
     except KeyboardInterrupt:
         print('\nCancelled by user. Bye!')
-
 
 if __name__ == '__main__':
     main()

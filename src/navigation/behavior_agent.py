@@ -360,9 +360,6 @@ class BehaviorAgent(BasicAgent):
             self._local_planner.set_speed(target_speed)
         control = self._local_planner.run_step(debug=debug)
 
-        control.throttle = 1.0
-        control.brake = 0.0
-
         return control
 
     def emergency_stop(self):
