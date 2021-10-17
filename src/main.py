@@ -90,8 +90,9 @@ def game_loop(args):
         client = carla.Client(args.host, args.port)
 
         # load world 
+        client.set_timeout(8.0)
         client.load_world('Town01_opt')
-        client.set_timeout(6.0)
+        client.set_timeout(10.0)
 
         traffic_manager = client.get_trafficmanager()
         sim_world = client.get_world()
@@ -143,7 +144,7 @@ def game_loop(args):
                     print("The target has been reached, stopping the simulation")
                     break
 
-            control = agent.run_step()
+            control = agent.run_step(debug=True)
             control.manual_gear_shift = False
             world.player.apply_control(control)
 

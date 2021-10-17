@@ -151,7 +151,9 @@ class BasicAgent(object):
         """
         start_location = start_waypoint.transform.location
         end_location = end_waypoint.transform.location
+
         return self._global_planner.trace_route(start_location, end_location)
+
 
     def run_step(self):
         """Execute one step of navigation."""
