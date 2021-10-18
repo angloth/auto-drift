@@ -8,8 +8,9 @@
 from enum import Enum
 from collections import deque
 import random
-
 import carla
+import numpy as np
+
 from navigation.controller import VehiclePIDController
 from navigation.controller import DriftingController
 from navigation.misc import draw_waypoints, get_speed
@@ -41,7 +42,7 @@ class LocalPlanner(object):
     unless a given global plan has already been specified.
     """
 
-    def __init__(self, vehicle, opt_dict={}):
+    def __init__(self, vehicle, opt_dict={}, splinepath_length=30):
         """
         :param vehicle: actor to apply to local planner logic onto
         :param opt_dict: dictionary of arguments with different parameters:
@@ -79,6 +80,8 @@ class LocalPlanner(object):
         self._offset = 0
         self._base_min_distance = 3.0
         self._follow_speed_limits = False
+
+        self._splinepath_length = splinepath_length
 
         # Overload parameters
         if opt_dict:
@@ -243,7 +246,7 @@ class LocalPlanner(object):
 
         if num_waypoint_removed > 0:
             for _ in range(num_waypoint_removed):
-                self._waypoints_queue.popleft()
+                self._waypoints_queue.popleft()        
 
         # Get the target waypoint and move using the PID controllers. Stop if no target waypoint
         if len(self._waypoints_queue) == 0:

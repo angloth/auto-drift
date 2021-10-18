@@ -11,10 +11,14 @@ This module provides GlobalRoutePlanner implementation.
 import math
 import numpy as np
 import networkx as nx
+from collections import defaultdict
 
 import carla
 from navigation.local_planner import RoadOption
 from navigation.misc import vector
+from navigation.splinepath import SplinePath
+
+EPS = 0.001
 
 class GlobalRoutePlanner(object):
     """
@@ -78,7 +82,40 @@ class GlobalRoutePlanner(object):
                         destination_index = self._find_closest_in_list(destination_waypoint, path)
                         if closest_index > destination_index:
                             break
+            
+        ## Create splinepath
+        coords = [[waypoint.transform.location.x, waypoint.transform.location.y] for waypoint, _ in route_trace]
+        
+        # Ensure that there are no duplicates of values to make the interpolation work        
+        for dim in range(2):
+            dim_coord_freqs = defaultdict(int)
+            dim_coord_indices = defaultdict((list))
+            for ind, coord in enumerate(coords):
+                dim_coord = coord[dim]
 
+                dim_coord_freqs[dim_coord] += 1
+
+                dim_coord_indices[dim_coord].append(ind)
+
+            new_dim_coord_vals = set()
+            for dim_coord, freq in dim_coord_freqs.items():
+                if freq > 1:
+                    eps_inc = 1
+                    for i in range(1, freq): 
+                        coord_ind = dim_coord_indices[dim_coord][i]
+                        x_new_coord = None
+                        while True:
+                            dim_new_coord = dim_coord + eps_inc * EPS
+                            eps_inc += 1
+                            if (dim_new_coord not in dim_coord_freqs) and (dim_new_coord not in new_dim_coord_vals):
+                                break
+
+                        coords[coord_ind][dim] = dim_new_coord
+                        new_dim_coord_vals.add(dim_new_coord)
+        
+        np_coords = np.array(coords)
+        splinepath = SplinePath(np_coords)
+        
         return route_trace
 
     def _build_topology(self):
