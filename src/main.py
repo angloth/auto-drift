@@ -113,8 +113,18 @@ def game_loop(args):
         world = World(client.get_world(), hud, args)
         controller = KeyboardControl(world)
 
+        # set vehicle physics 
+        physics_control = world.player.get_physics_control()
+        front_left_wheel  = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=70.0, long_stiff_value=1000)
+        front_right_wheel = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=70.0, long_stiff_value=1000)
+        rear_left_wheel   = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
+        rear_right_wheel  = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
+        wheels = [front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel]
+        physics_control.wheels = wheels
+        world.player.apply_physics_control(physics_control)
+
         # create agent and set destination
-        agent = BehaviorAgent(world.player, behavior="aggressive")
+        agent = BehaviorAgent(world.player, behavior="normal")
         spawn_points = world.map.get_spawn_points()
         destination = random.choice(spawn_points).location
         agent.set_destination(destination)

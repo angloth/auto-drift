@@ -11,6 +11,7 @@ import random
 
 import carla
 from navigation.controller import VehiclePIDController
+from navigation.controller import DriftingController
 from navigation.misc import draw_waypoints, get_speed
 
 
@@ -120,6 +121,8 @@ class LocalPlanner(object):
                                                         max_throttle=self._max_throt,
                                                         max_brake=self._max_brake,
                                                         max_steering=self._max_steer)
+
+        self._vehicle_controller = DriftingController(self._vehicle)
 
         # Compute the current vehicle waypoint
         current_waypoint = self._map.get_waypoint(self._vehicle.get_location())
@@ -252,6 +255,7 @@ class LocalPlanner(object):
             control.manual_gear_shift = False
         else:
             self.target_waypoint, self.target_road_option = self._waypoints_queue[0]
+            #control = self._vehicle_controller.run_step(self._target_speed, self.target_waypoint)
             control = self._vehicle_controller.run_step(self._target_speed, self.target_waypoint)
 
         if debug:

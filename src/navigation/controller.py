@@ -7,9 +7,44 @@
 
 from collections import deque
 import math
+from math import sin
+from math import cos
 import numpy as np
 import carla
 from navigation.misc import get_speed
+import numpy as np
+
+
+class DriftingController():
+
+    def __init__(self, vehicle):
+        self.vehicle = vehicle
+
+        # for testing
+        self.pid_controller = VehiclePIDController(vehicle, dict(), dict())
+
+    def run_step(self, target_speed, waypoint):
+        
+        lateral_error = 0
+
+        vehicle_rotation = self.vehicle.get_transform().rotation
+        vehicle_rotation = np.array([cos(vehicle_rotation.yaw * math.pi / 180), sin(vehicle_rotation.yaw * math.pi / 180)])
+        
+        vehicle_velocity = np.array([self.vehicle.get_velocity().x, self.vehicle.get_velocity().y])
+        vehicle_velocity = vehicle_velocity / np.linalg.norm(vehicle_velocity)
+
+        beta = math.acos(np.dot(vehicle_rotation, vehicle_velocity))
+
+        print("beta: ", beta)
+
+        # create and set control
+        control = carla.VehicleControl()
+        control.throttle = 0.5
+
+        # pid controller for testing
+        control = self.pid_controller.run_step(target_speed, waypoint)
+
+        return control
 
 
 class VehiclePIDController():
