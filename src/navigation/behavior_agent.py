@@ -30,7 +30,7 @@ class BehaviorAgent(BasicAgent):
     are encoded in the agent, from cautious to a more aggressive ones.
     """
 
-    def __init__(self, vehicle, behavior='normal'):
+    def __init__(self, vehicle, controller='PID', behavior='normal'):
         """
         Constructor method.
 
@@ -39,7 +39,7 @@ class BehaviorAgent(BasicAgent):
             :param behavior: type of agent to apply
         """
 
-        super(BehaviorAgent, self).__init__(vehicle)
+        super(BehaviorAgent, self).__init__(vehicle, controller)
         self._look_ahead_steps = 0
 
         # Vehicle information

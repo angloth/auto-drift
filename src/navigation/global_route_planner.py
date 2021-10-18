@@ -116,7 +116,7 @@ class GlobalRoutePlanner(object):
         np_coords = np.array(coords)
         splinepath = SplinePath(np_coords)
         
-        return route_trace
+        return route_trace, splinepath
 
     def _build_topology(self):
         """
