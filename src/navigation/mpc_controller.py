@@ -26,7 +26,8 @@ class ModelPredictiveController():
         
         self.goal_tol = goal_tol
         self.d = []
-        self.s0 = 0
+
+        self.s0 = None
         self.optimizer = None #self.construct_problem(), has to be done when path is set.
 
     def heading_error(self, theta, s):
@@ -126,7 +127,7 @@ class ModelPredictiveController():
         
         return casadi.vertcat(d_dot, theta_e_dot)
 
-    def u(self, t, w):
+    def u(self, t, w, debug=False):
         p_car = w[0:2]
         theta = w[2]
         v = w[3]
@@ -145,6 +146,9 @@ class ModelPredictiveController():
                 
         # Collect the controller output
         delta = float(Delta[0])
+
+        if debug:
+            print("theta_e:", theta_e, "d:", d, "delta", delta)
         acc = 0        
         self.d.append(d)
 
@@ -157,12 +161,12 @@ class ModelPredictiveController():
         velocity = self._vehicle.get_velocity()
         
         vel_arr = np.array([velocity.x, velocity.y])
-        
-        w = [location.x, location.y, yaw, np.linalg.norm(vel_arr)]
+
+        w = [location.x, location.y, math.radians(yaw), np.linalg.norm(vel_arr)]
 
         t = None
 
-        delta, acc = self.u(t, w)
+        delta, acc = self.u(t, w, debug=debug)
 
         acc = 0.5
 
@@ -175,17 +179,20 @@ class ModelPredictiveController():
             control.throttle = 0.0
             control.brake = abs(acc)
         
-        if delta > self.past_steering + 0.1:
-            delta = self.past_steering + 0.1
-        elif delta < self.past_steering - 0.1:
-            delta = self.past_steering - 0.1
+        steering = delta / self.steer_limit
 
-        control.steer = delta / self.steer_limit
+        #if steering > self.past_steering + 0.1:
+        #    steering = self.past_steering + 0.1
+        #elif steering < self.past_steering - 0.1:
+        #    steering = self.past_steering - 0.1
+
+        control.steer = steering
+        
+        if debug:
+            print(control)
         control.hand_brake = False
         control.manual_gear_shift = False
         self.past_steering = delta
-
-        print(delta)
 
         return control
 
@@ -193,6 +200,7 @@ class ModelPredictiveController():
         self.plan = splinepath
         self.optimizer = self.construct_problem()
 
+        self.s0 = 0
         self.end_location = end_location
     
     def done(self):

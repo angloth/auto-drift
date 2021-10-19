@@ -7,6 +7,7 @@ import os
 import numpy as np
 import numpy.random as random
 import sys
+import math
 
 try:
     import pygame
@@ -92,10 +93,15 @@ def game_loop(args):
     try:
         client = carla.Client(args.host, args.port)
 
+        client.set_timeout(1.0)
+
         # load world 
-        client.set_timeout(8.0)
-        client.load_world('Town01_opt')
-        client.set_timeout(10.0)
+        map_name = 'Town01_Opt'
+        if client.get_world().get_map().name != 'Carla/Maps/' + map_name:
+            client.set_timeout(8.0)
+            client.load_world(map_name)
+
+        #   client.get_world().unload_map_layer(carla.MapLayer.All)
 
         traffic_manager = client.get_trafficmanager()
         sim_world = client.get_world()
@@ -120,19 +126,21 @@ def game_loop(args):
         # set vehicle physics 
         max_steer_angle = 70.0
         physics_control = world.player.get_physics_control()
+
+
         front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel = physics_control.wheels
 
-        front_left_wheel.tire_friction = 3.0
-        front_right_wheel.tire_friction = 3.0
-        rear_left_wheel.tire_friction = 1.0
-        rear_right_wheel.tire_friction = 1.0
+        front_left_wheel.tire_friction = 1e10
+        front_right_wheel.tire_friction = 1e0
+        rear_left_wheel.tire_friction = 1e10
+        rear_right_wheel.tire_friction = 1e10
 
         front_left_wheel.max_steer_angle = max_steer_angle
         front_right_wheel.max_steer_angle = max_steer_angle
 
-        front_left_wheel_pos = np.array([front_left_wheel.position.x, front_left_wheel.position.y])
-        rear_left_wheel_pos = np.array([rear_left_wheel.position.x, rear_left_wheel.position.y])
-
+        front_left_wheel_pos = np.array([front_left_wheel.position.x/100, front_left_wheel.position.y/100])
+        rear_left_wheel_pos = np.array([rear_left_wheel.position.x/100, rear_left_wheel.position.y/100])
+        
         wheel_base = np.linalg.norm(front_left_wheel_pos - rear_left_wheel_pos)
 
         #front_left_wheel  = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=max_steer_angle, long_stiff_value=1000)
@@ -147,11 +155,11 @@ def game_loop(args):
 
         mpc_opts = {
             'h_p': 10, 
-            'gamma_d': 1,
-            'gamma_theta': 1,
-            'gamma_u': 1,
+            'gamma_d': 10,
+            'gamma_theta': 50,
+            'gamma_u': 50.0,
             'L': wheel_base,
-            'steer_limit': max_steer_angle
+            'steer_limit': math.radians(max_steer_angle)
         }
 
         # create agent and set destination
@@ -186,7 +194,7 @@ def game_loop(args):
                     print("The target has been reached, stopping the simulation")
                     break
 
-            control = agent.run_step(debug=True)
+            control = agent.run_step(debug=False)
             control.manual_gear_shift = False
             world.player.apply_control(control)
 
