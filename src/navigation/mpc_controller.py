@@ -180,7 +180,7 @@ class ModelPredictiveController():
         elif delta < self.past_steering - 0.1:
             delta = self.past_steering - 0.1
 
-        control.steer = delta
+        control.steer = delta / self.steer_limit
         control.hand_brake = False
         control.manual_gear_shift = False
         self.past_steering = delta
