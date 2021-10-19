@@ -4,8 +4,10 @@ import argparse
 import glob
 import logging
 import os
+import numpy as np
 import numpy.random as random
 import sys
+import math
 
 try:
     import pygame
@@ -24,6 +26,8 @@ from hud import HUD, KeyboardControl
 
 from navigation.behavior_agent import BehaviorAgent  # pylint: disable=import-error
 from navigation.basic_agent import BasicAgent  # pylint: disable=import-error
+
+from navigation.drift_agent import DriftAgent
 
 # ==============================================================================
 # -- Find CARLA module ---------------------------------------------------------
@@ -89,10 +93,15 @@ def game_loop(args):
     try:
         client = carla.Client(args.host, args.port)
 
+        client.set_timeout(1.0)
+
         # load world 
-        client.set_timeout(8.0)
-        client.load_world('Town01_opt')
-        client.set_timeout(10.0)
+        map_name = 'Town01_Opt'
+        if client.get_world().get_map().name != 'Carla/Maps/' + map_name:
+            client.set_timeout(8.0)
+            client.load_world(map_name)
+
+        #   client.get_world().unload_map_layer(carla.MapLayer.All)
 
         traffic_manager = client.get_trafficmanager()
         sim_world = client.get_world()
@@ -154,7 +163,7 @@ def game_loop(args):
                     print("The target has been reached, stopping the simulation")
                     break
 
-            control = agent.run_step(debug=True)
+            control = agent.run_step(debug=False)
             control.manual_gear_shift = False
             world.player.apply_control(control)
 
