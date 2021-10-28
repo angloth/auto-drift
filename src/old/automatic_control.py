@@ -142,12 +142,8 @@ class World(object):
 
         # Spawn the player.
         if self.player is not None:
-            spawn_point = self.player.get_transform()
-            spawn_point.location.z += 2.0
-            spawn_point.rotation.roll = 0.0
-            spawn_point.rotation.pitch = 0.0
             self.destroy()
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+            self.player = self.world.try_spawn_actor(blueprint, self.spawn_point)
             self.modify_vehicle_physics(self.player)
         while self.player is None:
             if not self.map.get_spawn_points():
@@ -156,6 +152,7 @@ class World(object):
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
             spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+            
             self.player = self.world.try_spawn_actor(blueprint, spawn_point)
             self.modify_vehicle_physics(self.player)
 

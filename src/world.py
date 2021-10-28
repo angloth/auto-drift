@@ -4,7 +4,7 @@ import numpy.random as random
 import weakref
 import collections
 import numpy as np
-import pygame
+#import pygame
 import math
 
 from carla import ColorConverter as cc
@@ -34,8 +34,12 @@ def find_weather_presets():
 class World(object):
     """ Class representing the surrounding environment """
 
-    def __init__(self, carla_world, hud, args):
+    def __init__(self, carla_world, hud, args, player_start_transform):
         """Constructor method"""
+        self.player_start_transform = player_start_transform
+        self.spawn_point = None
+
+
         self._args = args
         self.world = carla_world
         try:
@@ -45,25 +49,57 @@ class World(object):
             print('  The server could not send the OpenDRIVE (.xodr) file:')
             print('  Make sure it exists, has the same name of your town, and is correct.')
             sys.exit(1)
-        self.hud = hud
+        #self.hud = hud
         self.player = None
-        self.collision_sensor = None
-        self.lane_invasion_sensor = None
-        self.gnss_sensor = None
-        self.camera_manager = None
+        #self.collision_sensor = None
+        #self.lane_invasion_sensor = None
+        #self.gnss_sensor = None
+        #self.camera_manager = None
         self._weather_presets = find_weather_presets()
         self._weather_index = 0
         self._actor_filter = args.vehicle
-        self.restart(args)
-        self.world.on_tick(hud.on_world_tick)
+        self.restart()
+        #self.world.on_tick(hud.on_world_tick)
         self.recording_enabled = False
         self.recording_start = 0
 
-    def restart(self, args):
+
+    def reset_player(self):
+        # Set high friction and brake
+        physics_control = self.player.get_physics_control()
+
+        front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel = physics_control.wheels
+
+        front_left_wheel.tire_friction = 1e10
+        front_right_wheel.tire_friction = 1e10
+        rear_left_wheel.tire_friction = 1e10
+        rear_right_wheel.tire_friction = 1e10
+
+        wheels = [front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel]
+        physics_control.wheels = wheels
+        self.player.apply_physics_control(physics_control)
+
+        brake_control = carla.VehicleControl(0.0, 0.0, 1.0, True, False, False, 0)
+        self.player.apply_control(brake_control)
+
+
+        while True:
+            self.world.tick()
+
+            carla_vel = self.player.get_velocity()
+            np_vel = np.array([carla_vel.x, carla_vel.y, carla_vel.z])
+            if np.linalg.norm(np_vel) < 0.1:
+                break
+        
+        self.modify_vehicle_physics(self.player)
+        self.player.set_transform(self.player_start_transform)
+
+
+    def restart(self):
         """Restart the world"""
         # Keep same camera config if the camera manager exists.
-        cam_index = self.camera_manager.index if self.camera_manager is not None else 0
-        cam_pos_id = self.camera_manager.transform_index if self.camera_manager is not None else 0
+        #cam_index = self.camera_manager.index if self.camera_manager is not None else 0
+        #cam_pos_id = self.camera_manager.transform_index if self.camera_manager is not None else 0
 
         # Get a random blueprint.
         blueprint = random.choice(self.world.get_blueprint_library().filter(self._actor_filter))
@@ -75,92 +111,107 @@ class World(object):
 
         # Spawn the player.
         if self.player is not None:
-            spawn_point = self.player.get_transform()
-            spawn_point.location.z += 2.0
-            spawn_point.rotation.roll = 0.0
-            spawn_point.rotation.pitch = 0.0
-            self.destroy()
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
-            self.modify_vehicle_physics(self.player)
+
+            #self.destroy()
+            self.reset_player()
+           # self.player = self.world.try_spawn_actor(blueprint, self.spawn_point)
+            self.player.set_transform(self.player_start_transform)
+
         while self.player is None:
             if not self.map.get_spawn_points():
                 print('There are no spawn points available in your map/town.')
                 print('Please add some Vehicle Spawn Point to your UE4 scene.')
                 sys.exit(1)
             spawn_points = self.map.get_spawn_points()
-            spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
-            self.player = self.world.try_spawn_actor(blueprint, spawn_point)
+            self.spawn_point = random.choice(spawn_points) if spawn_points else carla.Transform()
+
+            self.player = self.world.try_spawn_actor(blueprint, self.spawn_point)
+            self.player.set_transform(self.player_start_transform)
+            
             self.modify_vehicle_physics(self.player)
 
         self.world.tick()
         #self.world.wait_for_tick()
 
         # Set up the sensors.
-        self.collision_sensor = CollisionSensor(self.player, self.hud)
-        self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
-        self.gnss_sensor = GnssSensor(self.player)
-        self.camera_manager = CameraManager(self.player, self.hud)
-        self.camera_manager.transform_index = cam_pos_id
-        self.camera_manager.set_sensor(cam_index, notify=False)
-        actor_type = get_actor_display_name(self.player)
-        self.hud.notification(actor_type)
+        #self.collision_sensor = CollisionSensor(self.player, self.hud)
+        #self.lane_invasion_sensor = LaneInvasionSensor(self.player, self.hud)
+        #self.gnss_sensor = GnssSensor(self.player)
+        #self.camera_manager = CameraManager(self.player, self.hud)
+        #self.camera_manager.transform_index = cam_pos_id
+        #self.camera_manager.set_sensor(cam_index, notify=False)
+        #actor_type = get_actor_display_name(self.player)
+        #self.hud.notification(actor_type)
 
     def next_weather(self, reverse=False):
         """Get next weather setting"""
         self._weather_index += -1 if reverse else 1
         self._weather_index %= len(self._weather_presets)
         preset = self._weather_presets[self._weather_index]
-        self.hud.notification('Weather: %s' % preset[1])
+        #self.hud.notification('Weather: %s' % preset[1])
         self.player.get_world().set_weather(preset[0])
 
     def modify_vehicle_physics(self, actor):
         #If actor is not a vehicle, we cannot use the physics control
         try:
             physics_control = actor.get_physics_control()
+            max_steer_angle = 90.0
+
+            front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel = physics_control.wheels
+
+            front_left_wheel.tire_friction = 3
+            front_right_wheel.tire_friction = 3
+            rear_left_wheel.tire_friction = 0.2
+            rear_right_wheel.tire_friction = 0.2
+
+            front_left_wheel.max_steer_angle = max_steer_angle
+            front_right_wheel.max_steer_angle = max_steer_angle
+            wheels = [front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel]
+            physics_control.wheels = wheels
+            physics_control.mass = 1000
             physics_control.use_sweep_wheel_collision = True
             actor.apply_physics_control(physics_control)
+        
         except Exception:
             pass
 
-    def tick(self, clock):
-        """Method for every tick"""
-        self.hud.tick(self, clock)
+    #def tick(self, clock):
+    #    """Method for every tick"""
+    #    self.hud.tick(self, clock)
 
-    def render(self, display):
-        """Render world"""
-        self.camera_manager.render(display)
-        self.hud.render(display)
+    #def render(self, display):
+    #    """Render world"""
+    #    self.camera_manager.render(display)
+    #    self.hud.render(display)
 
-    def destroy_sensors(self):
-        """Destroy sensors"""
-        self.camera_manager.sensor.destroy()
-        self.camera_manager.sensor = None
-        self.camera_manager.index = None
+    #def destroy_sensors(self):
+    #    """Destroy sensors"""
+    #    self.camera_manager.sensor.destroy()
+    #    self.camera_manager.sensor = None
+    #    self.camera_manager.index = None
 
     def destroy(self):
         """Destroys all actors"""
         actors = [
-            self.camera_manager.sensor,
-            self.collision_sensor.sensor,
-            self.lane_invasion_sensor.sensor,
-            self.gnss_sensor.sensor,
+            #self.camera_manager.sensor,
+            #self.collision_sensor.sensor,
+            #self.lane_invasion_sensor.sensor,
+            #self.gnss_sensor.sensor,
             self.player]
         for actor in actors:
             if actor is not None:
                 actor.destroy() 
 
 
-
 # ==============================================================================
 # -- CollisionSensor -----------------------------------------------------------
 # ==============================================================================
 
-
+"""
 class CollisionSensor(object):
-    """ Class for collision sensors"""
+     Class for collision sensors
 
     def __init__(self, parent_actor, hud):
-        """Constructor method"""
         self.sensor = None
         self.history = []
         self._parent = parent_actor
@@ -174,7 +225,6 @@ class CollisionSensor(object):
         self.sensor.listen(lambda event: CollisionSensor._on_collision(weak_self, event))
 
     def get_collision_history(self):
-        """Gets the history of collisions"""
         history = collections.defaultdict(int)
         for frame, intensity in self.history:
             history[frame] += intensity
@@ -182,7 +232,6 @@ class CollisionSensor(object):
 
     @staticmethod
     def _on_collision(weak_self, event):
-        """On collision method"""
         self = weak_self()
         if not self:
             return
@@ -200,10 +249,8 @@ class CollisionSensor(object):
 
 
 class LaneInvasionSensor(object):
-    """Class for lane invasion sensors"""
 
     def __init__(self, parent_actor, hud):
-        """Constructor method"""
         self.sensor = None
         self._parent = parent_actor
         self.hud = hud
@@ -217,7 +264,6 @@ class LaneInvasionSensor(object):
 
     @staticmethod
     def _on_invasion(weak_self, event):
-        """On invasion method"""
         self = weak_self()
         if not self:
             return
@@ -231,10 +277,8 @@ class LaneInvasionSensor(object):
 
 
 class GnssSensor(object):
-    """ Class for GNSS sensors"""
 
     def __init__(self, parent_actor):
-        """Constructor method"""
         self.sensor = None
         self._parent = parent_actor
         self.lat = 0.0
@@ -250,7 +294,6 @@ class GnssSensor(object):
 
     @staticmethod
     def _on_gnss_event(weak_self, event):
-        """GNSS method"""
         self = weak_self()
         if not self:
             return
@@ -263,10 +306,8 @@ class GnssSensor(object):
 
 
 class CameraManager(object):
-    """ Class for camera management"""
 
     def __init__(self, parent_actor, hud):
-        """Constructor method"""
         self.sensor = None
         self.surface = None
         self._parent = parent_actor
@@ -308,12 +349,10 @@ class CameraManager(object):
         self.index = None
 
     def toggle_camera(self):
-        """Activate a camera"""
         self.transform_index = (self.transform_index + 1) % len(self._camera_transforms)
         self.set_sensor(self.index, notify=False, force_respawn=True)
 
     def set_sensor(self, index, notify=True, force_respawn=False):
-        """Set a sensor"""
         index = index % len(self.sensors)
         needs_respawn = True if self.index is None else (
             force_respawn or (self.sensors[index][0] != self.sensors[self.index][0]))
@@ -336,16 +375,13 @@ class CameraManager(object):
         self.index = index
 
     def next_sensor(self):
-        """Get the next sensor"""
         self.set_sensor(self.index + 1)
 
     def toggle_recording(self):
-        """Toggle recording on or off"""
         self.recording = not self.recording
         self.hud.notification('Recording %s' % ('On' if self.recording else 'Off'))
 
     def render(self, display):
-        """Render method"""
         if self.surface is not None:
             display.blit(self.surface, (0, 0))
 
@@ -376,3 +412,4 @@ class CameraManager(object):
             self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
         if self.recording:
             image.save_to_disk('_out/%08d' % image.frame)
+"""

@@ -96,9 +96,9 @@ def game_loop(args):
         client.set_timeout(1.0)
 
         # load world 
-        map_name = 'Town01_Opt'
+        map_name = 'Town03_Opt'
         if client.get_world().get_map().name != 'Carla/Maps/' + map_name:
-            client.set_timeout(8.0)
+            client.set_timeout(10.0)
             client.load_world(map_name)
 
         #   client.get_world().unload_map_layer(carla.MapLayer.All)
@@ -124,14 +124,43 @@ def game_loop(args):
         controller = KeyboardControl(world)
 
         # set vehicle physics 
+        max_steer_angle = 90.0
         physics_control = world.player.get_physics_control()
-        front_left_wheel  = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=70.0, long_stiff_value=1000)
-        front_right_wheel = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=70.0, long_stiff_value=1000)
-        rear_left_wheel   = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
-        rear_right_wheel  = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
+
+
+        front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel = physics_control.wheels
+
+        front_left_wheel.tire_friction = 30
+        front_right_wheel.tire_friction = 30
+        rear_left_wheel.tire_friction = 10
+        rear_right_wheel.tire_friction = 10
+
+        front_left_wheel.max_steer_angle = max_steer_angle
+        front_right_wheel.max_steer_angle = max_steer_angle
+
+        front_left_wheel_pos = np.array([front_left_wheel.position.x/100, front_left_wheel.position.y/100])
+        rear_left_wheel_pos = np.array([rear_left_wheel.position.x/100, rear_left_wheel.position.y/100])
+        
+        wheel_base = np.linalg.norm(front_left_wheel_pos - rear_left_wheel_pos)
+
+        #front_left_wheel  = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=max_steer_angle, long_stiff_value=1000)
+        #front_right_wheel = carla.WheelPhysicsControl(tire_friction=3.0, damping_rate=1.5, max_steer_angle=max_steer_angle, long_stiff_value=1000)
+        #rear_left_wheel   = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
+        #rear_right_wheel  = carla.WheelPhysicsControl(tire_friction=1.0, damping_rate=1.5, max_steer_angle=0.0,  long_stiff_value=1000)
         wheels = [front_left_wheel, front_right_wheel, rear_left_wheel, rear_right_wheel]
         physics_control.wheels = wheels
         world.player.apply_physics_control(physics_control)
+
+        # Set MPC controller arguments
+
+        mpc_opts = {
+            'h_p': 1, 
+            'gamma_d': 50,
+            'gamma_theta': 500,
+            'gamma_u': 50,
+            'L': wheel_base,
+            'steer_limit': math.radians(max_steer_angle)
+        }
 
         # create agent and set destination
         agent = BehaviorAgent(world.player, behavior="normal")

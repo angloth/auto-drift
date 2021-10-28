@@ -124,7 +124,8 @@ class ModelPredictiveController():
 
         d_dot = v * w[1]
         theta_e_dot = v * (delta - curvature * (1 - curvature * w[0]))
-        
+        #theta_e_dot = v * (delta/self.L - curvature)
+
         return casadi.vertcat(d_dot, theta_e_dot)
 
     def u(self, t, w, debug=False):
@@ -165,8 +166,10 @@ class ModelPredictiveController():
         w = [location.x, location.y, math.radians(yaw), np.linalg.norm(vel_arr)]
 
         t = None
-
-        delta, acc = self.u(t, w, debug=debug)
+        try:
+            delta, acc = self.u(t, w, debug=True)
+        except:
+            delta = 0.0
 
         acc = 0.5
 
@@ -181,10 +184,10 @@ class ModelPredictiveController():
         
         steering = delta / self.steer_limit
 
-        #if steering > self.past_steering + 0.1:
-        #    steering = self.past_steering + 0.1
-        #elif steering < self.past_steering - 0.1:
-        #    steering = self.past_steering - 0.1
+        if steering > self.past_steering + 0.1:
+            steering = self.past_steering + 0.1
+        elif steering < self.past_steering - 0.1:
+            steering = self.past_steering - 0.1
 
         control.steer = steering
         
