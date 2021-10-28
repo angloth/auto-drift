@@ -6,3 +6,6 @@ This project was implemented by Angus Lothian and Mattias Ljung during the Autum
 
 The environment source code can be found in src/drl/environment.py and the main file can be found in src/drl_main.py
 
+Videos demoing the car: 
+* https://drive.google.com/file/d/1wbWX2TUkMm8plHAkqa97Gv6c_-f7iCzd/view?usp=sharing
+* https://drive.google.com/file/d/1kr01SSDmsW9nCh9879FnGnOlXH-6JWG-/view?usp=sharing
